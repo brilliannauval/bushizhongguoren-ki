@@ -1,0 +1,23 @@
+# Python Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Python Cache & Compiled Shared Objects
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.o
+
+# Local Database & Dynamic Uploads
+*.db
+vault.db
+uploads/
+
+# Temporary / Scratch Files
+*.tmp
+.DS_Store
+.vscode/
+.idea/
