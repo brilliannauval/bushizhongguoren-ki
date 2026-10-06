@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}GDPR & UU PDP Private Data Vault{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom border-secondary border-opacity-25">
+        <div>
+            <h2 class="fw-bold text-white mb-1">
+                <i class="fa-solid fa-id-card-clip text-info me-2"></i> GDPR & UU PDP Personal Data Vault
+            </h2>
+            <p class="text-muted mb-0 small">
+                Compliant with <strong>EU GDPR (Art. 4 & 9)</strong> and <strong>UU PDP No. 27/2022 (Pasal 4)</strong>. All fields stored simultaneously in AES, DES, and RC4.
+            </p>
+        </div>
+        <div>
+            <span class="badge bg-secondary p-2 small">
+                <i class="fa-solid fa-lock text-info me-1"></i> Triple Cipher Parallel Storage Active
+            </span>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Form / Decrypted Data Section -->
+        <div class="col-lg-6">
+            <div class="card vault-card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold text-white mb-0">
+                        <i class="fa-solid fa-user-pen text-info me-2"></i> Manage Personal Data
+                    </h5>
+                    {% if priv %}
+                        <span class="badge bg-success"><i class="fa-solid fa-check"></i> Encrypted in Database</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark"><i class="fa-solid fa-clock"></i> Not Configured</span>
+                    {% endif %}
+                </div>
+
+                <form method="POST" action="{{ url_for('profile') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+                    <h6 class="text-info border-bottom border-secondary border-opacity-25 pb-1 mt-3 mb-2 small fw-bold">
+                        <i class="fa-solid fa-address-book me-1"></i> Data Pribadi Umum (General Personal Data)
+                    </h6>
+
+                    <div class="mb-3">
+                        <label class="form-label">Full Legal Name (Nama Lengkap)</label>
+                        <input type="text" name="full_name" class="form-control" 
+                               value="{{ decrypted_data.get('full_name', '') }}" placeholder="e.g. Budi Santoso" required>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Email Address</label>
+                            <input type="email" name="email" class="form-control" 
+                                   value="{{ decrypted_data.get('email', '') }}" placeholder="e.g. budi@vault.local" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone Number (No. Telepon)</label>
+                            <input type="text" name="phone" class="form-control" 
+                                   value="{{ decrypted_data.get('phone', '') }}" placeholder="e.g. +62 812-3456-7890" required>
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Date of Birth (Tanggal Lahir)</label>
+                            <input type="text" name="dob" class="form-control" 
+                                   value="{{ decrypted_data.get('dob', '') }}" placeholder="e.g. 1998-05-14" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Residential Address (Alamat Domisili)</label>
+                            <input type="text" name="address" class="form-control" 
+                                   value="{{ decrypted_data.get('address', '') }}" placeholder="e.g. Jl. Sudirman No. 45, Jakarta" required>
+                        </div>
+                    </div>
+
+                    <h6 class="text-warning border-bottom border-secondary border-opacity-25 pb-1 mt-4 mb-2 small fw-bold">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i> Data Pribadi Spesifik / Sensitive (UU PDP Pasal 4 ayat 2)
+                    </h6>
+
+                    <div class="mb-3">
+                        <label class="form-label">National ID / NIK (Nomor Induk Kependudukan)</label>
+                        <input type="text" name="nik" class="form-control" 
+                               value="{{ decrypted_data.get('nik', '') }}" placeholder="e.g. 3171020304050001 (16 digits)" required>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Health Information / Blood Type (Data Kesehatan)</label>
+                        <input type="text" name="health_info" class="form-control" 
+                               value="{{ decrypted_data.get('health_info', '') }}" placeholder="e.g. Blood: O+, No known chronic allergies" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-cyan w-100 py-2">
+                        <i class="fa-solid fa-lock me-1"></i> Encrypt in AES + DES + RC4 & Save to Vault
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Technical Cipher Comparison Inspector -->
+        <div class="col-lg-6">
+            <div class="card vault-card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold text-white mb-0">
+                        <i class="fa-solid fa-code-compare text-info me-2"></i> Multi-Cipher Technical Inspector
+                    </h5>
+                    <span class="badge bg-dark border border-secondary border-opacity-50 small">Live Database State</span>
+                </div>
+                <p class="text-muted small">
+                    Every field is individually encrypted with AES-128-CBC, DES-CBC, and RC4. Inspect raw ciphertexts, IVs, HMACs, and Shannon entropy below:
+                </p>
+
+                {% if cipher_comparison %}
+                    <div class="accordion accordion-flush" id="cipherAccordion">
+                        {% for field_key, item in cipher_comparison.items() %}
+                            <div class="accordion-item bg-dark border border-secondary border-opacity-25 mb-2 rounded overflow-hidden">
+                                <h2 class="accordion-header" id="heading_{{ field_key }}">
+                                    <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" 
+                                            data-bs-toggle="collapse" data-bs-target="#collapse_{{ field_key }}">
+                                        <div class="d-flex align-items-center justify-content-between w-100 me-3">
+                                            <span><strong>{{ item.label }}</strong></span>
+                                            <span class="badge bg-secondary small text-info">{{ decrypted_data.get(field_key, '') }}</span>
+                                        </div>
+                                    </button>
+                                </h2>
+                                <div id="collapse_{{ field_key }}" class="accordion-collapse collapse" data-bs-parent="#cipherAccordion">
+                                    <div class="accordion-body p-3 bg-dark bg-opacity-75">
+                                        <!-- AES -->
+                                        <div class="mb-3">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="badge badge-aes">AES-128-CBC</span>
+                                                <span class="badge badge-entropy">Entropy: {{ item.ciphers.aes.entropy }} bits/byte</span>
+                                            </div>
+                                            <div class="cipher-hex-block mb-1">
+                                                <span class="text-muted">IV:</span> {{ item.ciphers.aes.iv }}<br>
+                                                <span class="text-muted">Ciphertext:</span> {{ item.ciphers.aes.ct }}<br>
+                                                <span class="text-muted">HMAC-SHA256:</span> {{ item.ciphers.aes.hmac }}
+                                            </div>
+                                            <div class="small text-muted">Enc Time: {{ item.ciphers.aes.duration_ms }} ms</div>
+                                        </div>
+
+                                        <!-- DES -->
+                                        <div class="mb-3">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="badge badge-des">DES-CBC (Non-ECB)</span>
+                                                <span class="badge badge-entropy">Entropy: {{ item.ciphers.des.entropy }} bits/byte</span>
+                                            </div>
+                                            <div class="cipher-hex-block mb-1">
+                                                <span class="text-muted">IV:</span> {{ item.ciphers.des.iv }}<br>
+                                                <span class="text-muted">Ciphertext:</span> {{ item.ciphers.des.ct }}<br>
+                                                <span class="text-muted">HMAC-SHA256:</span> {{ item.ciphers.des.hmac }}
+                                            </div>
+                                            <div class="small text-muted">Enc Time: {{ item.ciphers.des.duration_ms }} ms</div>
+                                        </div>
+
+                                        <!-- RC4 -->
+                                        <div>
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="badge badge-rc4">RC4 (ARC4 Stream)</span>
+                                                <span class="badge badge-entropy">Entropy: {{ item.ciphers.rc4.entropy }} bits/byte</span>
+                                            </div>
+                                            <div class="cipher-hex-block mb-1">
+                                                <span class="text-muted">Ciphertext:</span> {{ item.ciphers.rc4.ct }}<br>
+                                                <span class="text-muted">HMAC-SHA256:</span> {{ item.ciphers.rc4.hmac }}
+                                            </div>
+                                            <div class="small text-muted">Enc Time: {{ item.ciphers.rc4.duration_ms }} ms</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="fa-solid fa-database fs-1 mb-3 opacity-50"></i>
+                        <p>No encrypted private data stored yet. Fill out the form on the left to populate the multi-cipher database.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

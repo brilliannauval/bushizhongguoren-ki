@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Vault Authentication{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 70vh;">
+    <div class="col-md-5 col-lg-4">
+        <div class="card vault-card p-4">
+            <div class="text-center mb-4">
+                <div class="d-inline-flex p-3 rounded-circle bg-info bg-opacity-15 border border-info border-opacity-35 mb-3">
+                    <i class="fa-solid fa-lock text-info fs-1"></i>
+                </div>
+                <h3 class="fw-bold text-white mb-1">Access Vault</h3>
+                <p class="text-secondary small">Enter credentials to derive your session cryptographic keys</p>
+            </div>
+
+            <form method="POST" action="{{ url_for('login') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+                <div class="mb-3">
+                    <label class="form-label"><i class="fa-solid fa-user text-info me-1"></i> Username</label>
+                    <input type="text" name="username" class="form-control" placeholder="e.g. alice" required autofocus autocomplete="username">
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label"><i class="fa-solid fa-key text-info me-1"></i> Master Password</label>
+                    <div class="input-group">
+                        <input type="password" id="loginPassword" name="password" class="form-control" placeholder="••••••••••••" required autocomplete="current-password">
+                        <button class="btn btn-outline-secondary border-secondary border-opacity-50" type="button" onclick="togglePasswordVisibility('loginPassword', this)" title="Toggle Password Visibility">
+                            <i class="fa-solid fa-eye text-info"></i>
+                        </button>
+                    </div>
+                    <div class="form-text mt-1">
+                        <i class="fa-solid fa-shield-halved text-info"></i> Protected by Argon2id & 5-Attempt Lockout
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-cyan w-100 py-2 mb-3 shadow-sm">
+                    <i class="fa-solid fa-unlock-keyhole me-1"></i> Authenticate & Decrypt Vault
+                </button>
+            </form>
+
+            <div class="border-top border-secondary border-opacity-25 pt-3 text-center">
+                <span class="text-secondary small">Need an encrypted personal vault?</span>
+                <a href="{{ url_for('register') }}" class="text-info small fw-bold ms-1 text-decoration-none">
+                    Register New Account <i class="fa-solid fa-arrow-right small"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

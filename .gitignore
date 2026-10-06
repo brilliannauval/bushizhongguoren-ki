@@ -21,3 +21,6 @@ uploads/
 .DS_Store
 .vscode/
 .idea/
+instance/
+logs/
+*.log

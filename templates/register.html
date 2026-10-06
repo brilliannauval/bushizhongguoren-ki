@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Create Secure Vault{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 70vh;">
+    <div class="col-md-6 col-lg-5">
+        <div class="card vault-card p-4">
+            <div class="text-center mb-4">
+                <div class="d-inline-flex p-3 rounded-circle bg-primary bg-opacity-15 border border-primary border-opacity-35 mb-3">
+                    <i class="fa-solid fa-user-shield text-info fs-1"></i>
+                </div>
+                <h3 class="fw-bold text-white mb-1">Create Encrypted Vault</h3>
+                <p class="text-secondary small">Generates your unique PBKDF2 cryptographic salt (16 bytes)</p>
+            </div>
+
+            <form method="POST" action="{{ url_for('register') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+                <div class="mb-3">
+                    <label class="form-label"><i class="fa-solid fa-user text-info me-1"></i> Username</label>
+                    <input type="text" name="username" class="form-control" placeholder="alphanumeric & underscore, e.g. bob_crypto" required autofocus>
+                    <div class="form-text">3-32 characters (letters, numbers, underscores).</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label"><i class="fa-solid fa-lock text-info me-1"></i> Master Password</label>
+                    <div class="input-group">
+                        <input type="password" id="regPassword" name="password" class="form-control" placeholder="Minimum 8 characters" required>
+                        <button class="btn btn-outline-secondary border-secondary border-opacity-50" type="button" onclick="togglePasswordVisibility('regPassword', this)" title="Toggle Password Visibility">
+                            <i class="fa-solid fa-eye text-info"></i>
+                        </button>
+                    </div>
+                    <div class="form-text">Must contain uppercase letter, lowercase letter, and at least 1 digit.</div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label"><i class="fa-solid fa-check-double text-info me-1"></i> Confirm Password</label>
+                    <div class="input-group">
+                        <input type="password" id="confirmPassword" name="confirm_password" class="form-control" placeholder="Re-type master password" required>
+                        <button class="btn btn-outline-secondary border-secondary border-opacity-50" type="button" onclick="togglePasswordVisibility('confirmPassword', this)" title="Toggle Password Visibility">
+                            <i class="fa-solid fa-eye text-info"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="vault-info-box mb-4 small">
+                    <div class="fw-bold text-white mb-1"><i class="fa-solid fa-info-circle text-info me-1"></i> Zero-Knowledge Architecture</div>
+                    Your master password is never stored in plaintext. It is hashed with <strong>Argon2id</strong> and used in PBKDF2-HMAC-SHA256 (600,000 iterations) to derive domain-separated encryption keys for AES, DES, RC4, and HMAC.
+                </div>
+
+                <button type="submit" class="btn btn-cyan w-100 py-2 mb-3 shadow-sm">
+                    <i class="fa-solid fa-vault me-1"></i> Initialize Secure Vault
+                </button>
+            </form>
+
+            <div class="border-top border-secondary border-opacity-25 pt-3 text-center">
+                <span class="text-secondary small">Already have a vault?</span>
+                <a href="{{ url_for('login') }}" class="text-info small fw-bold ms-1 text-decoration-none">
+                    Log In <i class="fa-solid fa-arrow-right small"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

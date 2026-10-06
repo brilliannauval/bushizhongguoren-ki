@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Files Vault (50MB Multi-Cipher){% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom border-secondary border-opacity-25">
+        <div>
+            <h2 class="fw-bold text-white mb-1">
+                <i class="fa-solid fa-folder-tree text-info me-2"></i> Multimedia & Document Vault
+            </h2>
+            <p class="text-muted mb-0 small">
+                Upload Images (JPG, JPEG, PNG), Documents (PDF, DOCX, XLSX), and Videos (MP4) (up to <strong>{{ max_file_size_mb }} MB</strong> each). Every file is encrypted simultaneously in <strong>AES-128</strong>, <strong>DES</strong>, and <strong>RC4</strong>.
+            </p>
+        </div>
+        <div>
+            <button class="btn btn-cyan btn-sm" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                <i class="fa-solid fa-cloud-arrow-up me-1"></i> Upload Secure File
+            </button>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div class="modal fade" id="uploadModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content vault-card border-secondary">
+                <div class="modal-header border-secondary border-opacity-25">
+                    <h5 class="modal-title text-white fw-bold">
+                        <i class="fa-solid fa-file-shield text-info me-2"></i> Upload to Encrypted Vault
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" action="{{ url_for('upload_file') }}" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">File Category</label>
+                            <select name="category" class="form-select" required>
+                                <option value="id_card">Image (JPG, JPEG, PNG)</option>
+                                <option value="document">Document (PDF, DOCX, XLSX)</option>
+                                <option value="video">Video (MP4)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Select File (Max 50 MB)</label>
+                            <input type="file" name="file" class="form-control" accept=".jpg,.jpeg,.png,.pdf,.docx,.xlsx,.mp4" required>
+                            <div class="form-text mt-1">
+                                <i class="fa-solid fa-shield-halved text-info"></i> Strict validation: Only JPG, JPEG, PNG, PDF, DOCX, XLSX, MP4 allowed. Double-extensions (e.g. .php.docx) and scripts are strictly blocked.
+                            </div>
+                        </div>
+                        <div class="vault-info-box small">
+                            <i class="fa-solid fa-bolt text-warning me-1"></i> <strong>Triple Encryption:</strong> The uploaded file will be streamed through AES-128-CBC, DES-CBC, and RC4 engines. Three separate encrypted payloads and HMACs will be generated on disk.
+                        </div>
+                    </div>
+                    <div class="modal-footer border-secondary border-opacity-25">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-cyan btn-sm">
+                            <i class="fa-solid fa-lock me-1"></i> Encrypt & Upload
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Tabs -->
+    <ul class="nav nav-pills mb-4 gap-2" id="fileCategoryTabs" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active btn-sm" id="idcard-tab" data-bs-toggle="pill" data-bs-target="#idcard-content" type="button">
+                <i class="fa-solid fa-image me-1"></i> Images ({{ id_cards|length }})
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link btn-sm" id="docs-tab" data-bs-toggle="pill" data-bs-target="#docs-content" type="button">
+                <i class="fa-solid fa-file-lines me-1"></i> Documents ({{ documents|length }})
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link btn-sm" id="videos-tab" data-bs-toggle="pill" data-bs-target="#videos-content" type="button">
+                <i class="fa-solid fa-film me-1"></i> Videos ({{ videos|length }})
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="fileCategoryContent">
+        <!-- Tab 1: ID Cards -->
+        <div class="tab-pane fade show active" id="idcard-content">
+            {% with file_list=id_cards, cat_name='ID Card' %}
+                {% include 'components/file_table.html' %}
+            {% endwith %}
+        </div>
+
+        <!-- Tab 2: Documents -->
+        <div class="tab-pane fade" id="docs-content">
+            {% with file_list=documents, cat_name='Document' %}
+                {% include 'components/file_table.html' %}
+            {% endwith %}
+        </div>
+
+        <!-- Tab 3: Videos -->
+        <div class="tab-pane fade" id="videos-content">
+            {% with file_list=videos, cat_name='Video' %}
+                {% include 'components/file_table.html' %}
+            {% endwith %}
+        </div>
+    </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content vault-card border-secondary">
+            <div class="modal-header border-secondary border-opacity-25">
+                <h5 class="modal-title text-white fw-bold" id="previewTitle">Decrypted In-Browser Preview</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center p-4" id="previewContainer">
+                <!-- Dynamically loaded preview element -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showPreview(fileId, filename, mimeType, cipher) {
+    document.getElementById('previewTitle').innerText = 'Decrypted Preview (' + cipher.toUpperCase() + '): ' + filename;
+    const container = document.getElementById('previewContainer');
+    container.innerHTML = '<div class="spinner-border text-info" role="status"><span class="visually-hidden">Decrypting stream...</span></div><div class="mt-2 text-muted small">Streaming decrypted bytes...</div>';
+    
+    const previewUrl = '/files/preview/' + fileId + '?cipher=' + cipher;
+    const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+    modal.show();
+
+    setTimeout(() => {
+        if (mimeType.startsWith('image/')) {
+            container.innerHTML = '<img src="' + previewUrl + '" class="img-fluid rounded border border-secondary" style="max-height: 500px;" alt="Decrypted ID Card">';
+        } else if (mimeType.startsWith('video/')) {
+            container.innerHTML = '<video controls autoplay class="w-100 rounded border border-secondary" style="max-height: 500px;"><source src="' + previewUrl + '" type="' + mimeType + '">Your browser does not support the video tag.</video>';
+        } else {
+            container.innerHTML = '<div class="alert alert-info">Preview not available in browser for this document type. Please use Decrypted Download below.</div>';
+        }
+    }, 200);
+}
+</script>
+{% endblock %}

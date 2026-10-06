@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}Multi-Download Benchmark Suite{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom border-secondary border-opacity-25">
+        <div>
+            <h2 class="fw-bold text-white mb-1">
+                <i class="fa-solid fa-stopwatch text-info me-2"></i> Multi-Download Benchmark Suite
+            </h2>
+            <p class="text-muted mb-0 small">
+                Empirically compare running times (ms), decryption throughput (MB/s), ciphertext size expansion, and Shannon entropy across <strong>AES-128-CBC</strong>, <strong>DES-CBC</strong>, and <strong>RC4</strong>.
+            </p>
+        </div>
+        <div>
+            <span class="badge bg-secondary p-2 small">
+                <i class="fa-solid fa-calculator text-info me-1"></i> Statistical Suite (Mean, Min, Max, Std Dev)
+            </span>
+        </div>
+    </div>
+
+    <!-- Benchmark Configuration Card -->
+    <div class="card vault-card p-4 mb-4">
+        <h5 class="fw-bold text-white mb-3">
+            <i class="fa-solid fa-sliders text-info me-2"></i> Run Configuration
+        </h5>
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Benchmark Target</label>
+                <select id="benchmarkItemType" class="form-select">
+                    <option value="profile">GDPR / UU PDP Profile Data (In-Memory Fields)</option>
+                    <option value="file" selected>Uploaded Vault File (ID Card, Document, Video)</option>
+                </select>
+            </div>
+
+            <div class="col-md-5" id="fileSelectGroup">
+                <label class="form-label">Select Target File</label>
+                <select id="benchmarkFileSelect" class="form-select">
+                    {% if files %}
+                        {% for f in files %}
+                            <option value="{{ f.id }}">
+                                [{{ f.category|upper }}] {{ f.original_filename }} ({{ (f.file_size_bytes / (1024*1024))|round(2) }} MB)
+                            </option>
+                        {% endfor %}
+                    {% else %}
+                        <option value="">No files uploaded yet (Upload in Files Vault first)</option>
+                    {% endif %}
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Iterations (Download Runs)</label>
+                <select id="benchmarkIterations" class="form-select">
+                    <option value="1">1 Iteration (Single Run)</option>
+                    <option value="5" selected>5 Iterations (Recommended)</option>
+                    <option value="10">10 Iterations (Assignment Requirement)</option>
+                </select>
+            </div>
+
+            <div class="col-12 mt-3">
+                <button id="runBenchmarkBtn" class="btn btn-cyan px-4 py-2">
+                    <i class="fa-solid fa-play me-1"></i> Run Multi-Download Benchmark
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="benchmarkLoadingIndicator" class="d-none text-center py-5">
+        <div class="spinner-border text-info mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+        <h5 class="text-white fw-bold">Executing Decryption Iterations...</h5>
+        <p class="text-muted small">Streaming file decryption through AES-CBC, DES-CBC, and RC4 engines and calculating statistics.</p>
+    </div>
+
+    <!-- Benchmark Results Section -->
+    <div id="benchmarkResultsCard" class="d-none">
+        <div class="card vault-card p-4 mb-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="fw-bold text-white mb-0">
+                        <i class="fa-solid fa-chart-line text-info me-2"></i> Empirical Performance Results
+                    </h5>
+                    <span class="text-muted small">Target: <strong class="text-info" id="resultsTargetLabel">-</strong> | Runs: <span class="badge bg-secondary" id="resultsIterationLabel">-</span></span>
+                </div>
+            </div>
+
+            <!-- Summary Table -->
+            <div class="table-responsive mb-4">
+                <table class="table table-dark table-hover align-middle small mb-0">
+                    <thead>
+                        <tr class="text-muted">
+                            <th>Algorithm</th>
+                            <th>Ciphertext Size</th>
+                            <th>Shannon Entropy</th>
+                            <th>Mean Time (ms)</th>
+                            <th>Min / Max (ms)</th>
+                            <th>Std Dev (ms)</th>
+                            <th>Throughput</th>
+                        </tr>
+                    </thead>
+                    <tbody id="benchmarkSummaryTableBody">
+                        <!-- Populated by benchmark.js -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Graphs Grid -->
+            <div class="row g-4">
+                <div class="col-lg-4">
+                    <div class="p-3 rounded bg-dark border border-secondary border-opacity-25 h-100">
+                        <h6 class="fw-bold text-white mb-3 text-center">Mean Running Time (ms)</h6>
+                        <canvas id="avgTimeChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <div class="p-3 rounded bg-dark border border-secondary border-opacity-25 h-100">
+                        <h6 class="fw-bold text-white mb-3 text-center">Iteration Latency (ms)</h6>
+                        <canvas id="iterationLineChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <div class="p-3 rounded bg-dark border border-secondary border-opacity-25 h-100">
+                        <h6 class="fw-bold text-white mb-3 text-center">Decryption Throughput (MB/s)</h6>
+                        <canvas id="throughputChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Historical Benchmark Logs -->
+    <div class="card vault-card p-4">
+        <h5 class="fw-bold text-white mb-3">
+            <i class="fa-solid fa-clock-rotate-left text-info me-2"></i> Historical Benchmark Runs
+        </h5>
+        {% if logs %}
+            <div class="table-responsive">
+                <table class="table table-dark table-hover align-middle small mb-0">
+                    <thead>
+                        <tr class="text-muted">
+                            <th>Timestamp</th>
+                            <th>Target Category</th>
+                            <th>Cipher</th>
+                            <th>Iterations</th>
+                            <th>Avg Latency</th>
+                            <th>Min / Max</th>
+                            <th>Throughput</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                            <tr>
+                                <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC</td>
+                                <td><span class="badge bg-secondary">{{ log.item_type|upper }}</span></td>
+                                <td>
+                                    {% if log.cipher_name == 'aes' %}
+                                        <span class="badge badge-aes">AES-128</span>
+                                    {% elif log.cipher_name == 'des' %}
+                                        <span class="badge badge-des">DES</span>
+                                    {% else %}
+                                        <span class="badge badge-rc4">RC4</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ log.iterations }}x</td>
+                                <td class="text-info fw-bold">{{ log.avg_duration_ms|round(2) }} ms</td>
+                                <td>{{ log.min_duration_ms|round(2) }} / {{ log.max_duration_ms|round(2) }} ms</td>
+                                <td class="text-success fw-bold">{{ log.throughput_mbps|round(2) }} MB/s</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-4 text-muted small">
+                <p class="mb-0">No historical benchmark runs recorded yet. Execute a benchmark run above to save results.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/benchmark.js') }}"></script>
+{% endblock %}

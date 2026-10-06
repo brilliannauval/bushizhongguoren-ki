@@ -1,0 +1,109 @@
+<div class="card vault-card p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold text-white mb-0">
+            <i class="fa-solid fa-list-check text-info me-2"></i> {{ cat_name }} Storage
+        </h5>
+        <span class="badge bg-dark border border-secondary border-opacity-50 small">{{ file_list|length }} Records</span>
+    </div>
+
+    {% if file_list %}
+        <div class="table-responsive">
+            <table class="table table-dark table-hover align-middle small mb-0">
+                <thead>
+                    <tr class="text-muted">
+                        <th>Filename</th>
+                        <th>Original Size</th>
+                        <th>Ciphertext Sizes</th>
+                        <th>Entropy (bits/B)</th>
+                        <th>Decrypted Download</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in file_list %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-white">{{ f.original_filename }}</div>
+                                <span class="text-muted" style="font-size: 0.75rem;">MIME: {{ f.mime_type }}</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">
+                                    {{ (f.file_size_bytes / (1024 * 1024))|round(2) }} MB
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex flex-column gap-1" style="font-size: 0.75rem;">
+                                    <span><span class="badge badge-aes py-0 px-1">AES</span> {{ (f.aes_size / (1024 * 1024))|round(2) }} MB</span>
+                                    <span><span class="badge badge-des py-0 px-1">DES</span> {{ (f.des_size / (1024 * 1024))|round(2) }} MB</span>
+                                    <span><span class="badge badge-rc4 py-0 px-1">RC4</span> {{ (f.rc4_size / (1024 * 1024))|round(2) }} MB</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex flex-column gap-1" style="font-size: 0.75rem;">
+                                    <span class="badge badge-entropy py-0 px-1">AES: {{ f.aes_entropy }}</span>
+                                    <span class="badge badge-entropy py-0 px-1">DES: {{ f.des_entropy }}</span>
+                                    <span class="badge badge-entropy py-0 px-1">RC4: {{ f.rc4_entropy }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <!-- Decrypted Download Dropdown -->
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-info btn-sm dropdown-toggle py-1 px-2" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}'>
+                                        <i class="fa-solid fa-download me-1"></i> Decrypt & Get
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-dark shadow">
+                                        <li><h6 class="dropdown-header text-muted">Select Decryption Algorithm</h6></li>
+                                        <li>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between" 
+                                               href="{{ url_for('download_file', file_id=f.id, cipher='aes') }}">
+                                                <span><i class="fa-solid fa-key text-info me-2"></i> Decrypt via AES-128</span>
+                                                <span class="badge badge-aes ms-2">CBC</span>
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between" 
+                                               href="{{ url_for('download_file', file_id=f.id, cipher='des') }}">
+                                                <span><i class="fa-solid fa-key text-warning me-2"></i> Decrypt via DES</span>
+                                                <span class="badge badge-des ms-2">CBC</span>
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between" 
+                                               href="{{ url_for('download_file', file_id=f.id, cipher='rc4') }}">
+                                                <span><i class="fa-solid fa-key text-purple me-2"></i> Decrypt via RC4</span>
+                                                <span class="badge badge-rc4 ms-2">Stream</span>
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td>
+                            <td class="text-end">
+                                <div class="d-inline-flex gap-2 flex-nowrap align-items-center justify-content-end" style="position: relative; z-index: 5;">
+                                    {% if f.category in ('id_card', 'video') %}
+                                        <button class="btn btn-outline-light btn-sm py-1 px-2" 
+                                                onclick="showPreview('{{ f.id }}', '{{ f.original_filename }}', '{{ f.mime_type }}', 'aes')" 
+                                                title="Preview Decrypted Media in Browser">
+                                            <i class="fa-solid fa-eye"></i>
+                                        </button>
+                                    {% endif %}
+                                    <form method="POST" action="{{ url_for('delete_file', file_id=f.id) }}" class="d-inline" 
+                                          onsubmit="return confirm('Securely delete this encrypted file from disk?');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm py-1 px-2" title="Delete">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fa-solid fa-folder-open fs-1 mb-3 opacity-50"></i>
+            <p>No {{ cat_name }} files stored yet. Click "Upload Secure File" above to add one.</p>
+        </div>
+    {% endif %}
+</div>
