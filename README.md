@@ -17,7 +17,7 @@ SecureBox is an educational web application for saving a user's profile and file
 
 The app stores account usernames and password verifiers, session/security metadata, optional profile fields (contact email, phone, address, date of birth, and national ID), uploaded files, and job/benchmark metadata. Identity cards and uploaded documents can contain highly sensitive personal information even when the rest of the app is configured securely. Use fabricated values and sample files only.
 
-## Technology stack
+## Tech Stack
 
 | Area | Technology |
 |---|---|
@@ -204,38 +204,3 @@ Run the test suite from the repository root after installing `requirements.txt`:
 ```sh
 python -m pytest -q
 ```
-
-## Deployment notes
-
-`render.yaml` is a **template**, not a completed deployment. It describes a free-tier Render Docker web service in Singapore and leaves database, object-storage, application-key, origin, invitation, and privacy-contact values for the operator to configure. The container runs Alembic migrations on startup. The template does not create the external PostgreSQL or S3-compatible storage resources.
-
-A low-cost demo arrangement is Render for the web service, Neon for PostgreSQL, and a private Cloudflare R2 bucket for objects. Verify each provider's current free allowances, terms, regions, and billing conditions before creating resources; free quotas and prices can change, and R2 overage may be billed. Render free services can sleep/restart and use ephemeral filesystems, so local `OBJECT_DIR` is not durable there. Neon and R2 must hold durable database/object data. Set invite-only registration and synthetic-data policies before sharing a public URL.
-
-The deployment must configure at least `DATABASE_URL`, private R2/S3 endpoint/bucket/credentials, persistent `KEK_V1`, `RATE_LIMIT_PEPPER_V1`, `INVITATION_CODE`, `PUBLIC_ORIGIN`, `CONTROLLER_NAME`, and `PRIVACY_CONTACT`. Keep the wrapping key backed up separately from the data. The Render template does not configure trusted forwarded-header sources; only set `FORWARDED_ALLOW_IPS` after verifying the provider's current proxy ranges and header behavior. Never set it to `*`.
-
-Check `/api/v1/health` after deployment. The assembly source requires Linux x86-64 and AES-NI/SSE4.1 CPU support, which a free host may not guarantee. A healthy service may report the labeled PyCryptodome fallback; that is usable fallback behavior but is not assembly benchmark evidence. This free-tier topology is for a small demo, not a production availability promise.
-
-## Troubleshooting
-
-| Symptom | What to check |
-|---|---|
-| Browser cannot open the site | Run `docker compose ps`; check that the `gateway`, `securebox`, and `db` services are healthy. Confirm the host port printed by `scripts/dev-up.sh`. |
-| Port is already in use | Set a different `SECUREBOX_HTTP_PORT` in `.env`, then rebuild/restart with `docker compose up --build -d`. |
-| App container is unhealthy | Read `docker compose logs securebox db`. Check DB health, startup migrations, `.env` formatting, and whether the configured Docker subnet overlaps another network. |
-| Login/session message says to sign in again | Reload the page, sign in again, and retry. For local development, use the same browser origin and port for the whole session; changing ports creates a different session origin. |
-| Video upload is rejected as unavailable | Install FFmpeg/`ffprobe` in the direct Python environment. The Docker image includes FFmpeg. |
-| Assembly is not selected | Check `/api/v1/health`. The host must be Linux x86-64 with AES-NI/SSE4.1; startup known-answer checks must also pass. PyCryptodome fallback is reported explicitly. |
-| Existing data cannot be decrypted after restart | Confirm that the same `KEK_V1` is still configured. In development, do not rely on the temporary key generated when the variable is absent. |
-| Database/object data is missing after redeploy | Local data is in Docker volumes; do not remove them with `--volumes`. Hosted free filesystems are ephemeral; production needs external PostgreSQL and private object storage. |
-
-## GitHub: what to include
-
-The active application can be built and run from these project files and directories:
-
-- `securebox/` including the Python modules, static UI, and `crypto_asm/` source files (`*.s`), `Makefile`, and Python bindings.
-- `migrations/`, `nginx/`, `scripts/`, and `tests/`.
-- `Dockerfile`, `compose.yaml`, `render.yaml`, `requirements.txt`, `alembic.ini`, `pytest.ini`, `.gitignore`, `.dockerignore`, and this `README.md`.
-
-The `docs/` directory is supplementary and is not required to run the app; the key setup, architecture, and deployment instructions are included here. The root-level PRD and dependency audit are also supporting documents, not runtime requirements. The older `AES_ASM/`, `DES_ASM/`, `RC4_ASM/`, and `bushizhongguoren-ki/` trees, original assignment images/archive, and generated `libcrypto_asm.so` are not required by the current Docker build. Keep `securebox/crypto_asm/` source in GitHub so Docker can compile the library.
-
-Do not push `.env` or other populated `.env.*` files, private keys, `var/`, local databases, uploaded/encrypted user objects, virtual environments, caches, or compiled binaries. `.gitignore` excludes the root `.env`, `var/`, SQLite files, caches, and `securebox/crypto_asm/libcrypto_asm.so`; it does **not** currently exclude every `.env.*` filename or arbitrary key file. Review `git status` and the staged file list before committing. The `.dockerignore` controls Docker build context and is separate from Git's ignore rules.
