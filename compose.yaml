@@ -1,0 +1,66 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: securebox
+      POSTGRES_USER: securebox
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    networks:
+      securebox-net:
+        ipv4_address: ${SECUREBOX_DB_IP:-172.29.240.3}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U securebox -d securebox"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  securebox:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://securebox:${POSTGRES_PASSWORD}@db:5432/securebox
+      OBJECT_DIR: /data/objects
+      APP_ENV: development
+      REGISTRATION_MODE: open
+      FORWARDED_ALLOW_IPS: ${SECUREBOX_GATEWAY_IP:-172.29.240.2}
+    volumes:
+      - securebox-data:/data
+    networks:
+      securebox-net:
+        ipv4_address: ${SECUREBOX_APP_IP:-172.29.240.4}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health',timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  gateway:
+    image: nginx:1.27-alpine
+    ports:
+      - "${SECUREBOX_HTTP_PORT:-8080}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      securebox-net:
+        ipv4_address: ${SECUREBOX_GATEWAY_IP:-172.29.240.2}
+    depends_on:
+      securebox:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  securebox-data:
+
+networks:
+  securebox-net:
+    ipam:
+      config:
+        - subnet: ${SECUREBOX_DOCKER_SUBNET:-172.29.240.0/24}
