@@ -495,6 +495,12 @@ async function bootstrap() {
 
 $("#show-login").addEventListener("click", () => switchAuth(false));
 $("#show-register").addEventListener("click", () => switchAuth(true));
+document.querySelectorAll(".sidebar-link").forEach((link) => {
+  link.addEventListener("click", () => {
+    document.querySelectorAll(".sidebar-link").forEach((candidate) => candidate.classList.remove("active"));
+    link.classList.add("active");
+  });
+});
 $("#login-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const formElement = event.currentTarget;
@@ -542,9 +548,21 @@ $("#profile-form").addEventListener("submit", saveProfile);
 $("#load-profile").addEventListener("click", loadProfile);
 $("#refresh-items").addEventListener("click", loadItems);
 $("#load-more").addEventListener("click", () => loadItems({ append: true }));
-$("#close-compare").addEventListener("click", () => $("#compare-panel").classList.add("hidden"));
+const closeComparison = () => $("#compare-panel").classList.add("hidden");
+$("#close-compare").addEventListener("click", closeComparison);
+$("#close-compare-footer").addEventListener("click", closeComparison);
+$("#compare-panel").addEventListener("click", (event) => {
+  if (event.target === $("#compare-panel")) closeComparison();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !$("#compare-panel").classList.contains("hidden")) closeComparison();
+});
 $("#run-benchmark").addEventListener("click", runBenchmark);
-$("#load-profile-compare").addEventListener("click", loadProfile);
+$("#load-profile-compare").addEventListener("click", async () => {
+  closeComparison();
+  await loadProfile();
+  $("#profile-section").scrollIntoView({ behavior: "smooth", block: "start" });
+});
 $("#delete-account").addEventListener("click", async () => {
   const approved = window.confirm("Permanently delete your account and all SecureBox items? Provider backups may remain until their stated expiry.");
   if (!approved) return;

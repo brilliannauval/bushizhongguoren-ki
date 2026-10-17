@@ -4,102 +4,158 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>SecureBox — private file comparison</title>
+  <meta name="theme-color" content="#1a73e8">
+  <title>SecureBox — Encrypted Storage</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/styles.css">
   <script src="/static/app.js" defer></script>
 </head>
 <body>
-  <main class="page-shell">
+  <div class="page-shell">
+    <!-- Authentication: backed by SecureBox's real API session, not browser-side mock auth. -->
     <section id="auth-view" class="auth-layout" aria-labelledby="brand-title">
       <div class="brand-panel">
+        <div class="brand-mark" aria-hidden="true">S</div>
         <p class="eyebrow">Information security lab</p>
-        <h1 id="brand-title">SecureBox</h1>
-        <p class="brand-copy">Store a private profile or file, then compare three educational cipher implementations.</p>
-        <div class="notice"><strong>Use synthetic data.</strong> RC4 and DES are obsolete and appear here for comparison only. A separate AES‑GCM envelope protects stored variants.</div>
-        <p class="privacy-link"><a href="/static/privacy.html">Privacy and data handling</a></p>
+        <h1 id="brand-title">SecureBox<span class="brand-period">.</span></h1>
+        <p class="brand-copy">A private workspace to store files, protect profile snapshots, and compare three educational cipher implementations.</p>
+        <div class="notice">
+          <strong>Designed for learning.</strong>
+          Use synthetic data only. DES and RC4 are obsolete and included for comparison; stored variants are separately protected by an AES-GCM envelope. This is not end-to-end encryption.
+        </div>
+        <p class="privacy-link"><a href="/static/privacy.html">Privacy and data handling <span aria-hidden="true">↗</span></a></p>
       </div>
+
       <div class="auth-card">
+        <div class="auth-card-heading">
+          <span class="auth-icon" aria-hidden="true">↗</span>
+          <p class="eyebrow">Your workspace</p>
+          <h2>Welcome back</h2>
+          <p class="auth-subtitle">Sign in to continue to your encrypted workspace.</p>
+        </div>
         <div class="tabs" role="tablist" aria-label="Account access">
           <button id="show-login" class="tab active" type="button" role="tab" aria-selected="true">Sign in</button>
           <button id="show-register" class="tab" type="button" role="tab" aria-selected="false">Create account</button>
         </div>
-        <p id="registration-note" class="helper" role="status"></p>
+        <p id="registration-note" class="helper registration-note" role="status"></p>
         <form id="login-form" class="form-stack">
           <label for="login-user">Username</label>
-          <input id="login-user" name="username" autocomplete="username" minlength="3" maxlength="32" required>
+          <input id="login-user" name="username" autocomplete="username" minlength="3" maxlength="32" placeholder="Enter your username" required>
           <label for="login-pass">Password</label>
-          <input id="login-pass" name="password" type="password" autocomplete="current-password" minlength="12" maxlength="128" required>
-          <button class="button primary" type="submit">Sign in</button>
+          <input id="login-pass" name="password" type="password" autocomplete="current-password" minlength="12" maxlength="128" placeholder="Enter your password" required>
+          <button class="button primary submit-button" type="submit">Sign in <span aria-hidden="true">→</span></button>
         </form>
         <form id="register-form" class="form-stack hidden">
           <label for="reg-user">Username</label>
-          <input id="reg-user" name="username" autocomplete="username" minlength="3" maxlength="32" required>
+          <input id="reg-user" name="username" autocomplete="username" minlength="3" maxlength="32" placeholder="Choose a username" required>
           <label for="reg-pass">Password <span class="helper-inline">12–128 characters</span></label>
-          <input id="reg-pass" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required>
+          <input id="reg-pass" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" placeholder="Create a strong password" required>
           <div id="invitation-field" class="hidden">
             <label for="invitation-code">Invitation code</label>
-            <input id="invitation-code" name="invitation_code" autocomplete="off" maxlength="128">
+            <input id="invitation-code" name="invitation_code" autocomplete="off" maxlength="128" placeholder="Enter invitation code">
           </div>
-          <button class="button primary" type="submit">Create account</button>
+          <button class="button primary submit-button" type="submit">Create account <span aria-hidden="true">→</span></button>
         </form>
         <p id="auth-message" class="message" role="alert" aria-live="polite"></p>
+        <div class="auth-footnote"><span class="lock-dot" aria-hidden="true">●</span> Protected by server-side authentication and session controls</div>
       </div>
     </section>
 
+    <!-- Authenticated app. The existing app.js owns all API, crypto-job, and data operations. -->
     <section id="app-view" class="app-view hidden" aria-label="SecureBox workspace">
       <header class="topbar">
-        <a class="wordmark" href="/">SecureBox</a>
-        <div class="topbar-right"><span id="welcome"></span><button id="logout" class="button quiet" type="button">Sign out</button></div>
+        <a class="wordmark" href="/" aria-label="SecureBox home"><span class="wordmark-icon" aria-hidden="true">S</span>SecureBox<span class="brand-period">.</span></a>
+        <div class="topbar-right">
+          <span class="workspace-indicator"><span aria-hidden="true"></span> Private workspace</span>
+          <span id="welcome" class="welcome-user"></span>
+          <button id="logout" class="button outline" type="button">Sign out <span aria-hidden="true">↗</span></button>
+        </div>
       </header>
-      <div class="page-intro">
-        <p class="eyebrow">Private workspace</p>
-        <h2>Your encrypted files</h2>
-        <p>Upload an allowed file or save a minimal profile snapshot. The server creates AES, DES, and RC4 comparison variants.</p>
-      </div>
 
-      <div class="workspace-grid">
-        <section class="card upload-card" aria-labelledby="upload-heading">
-          <div class="section-heading"><div><p class="eyebrow">01 / Store</p><h3 id="upload-heading">Add a file</h3></div></div>
-          <p class="helper">JPG, JPEG, PNG (5 MiB); PDF, DOCX, XLSX (10 MiB); MP4 (20 MiB). One active job at a time, 100 MiB total per account.</p>
-          <label class="file-picker" for="file-upload"><span class="plus-mark" aria-hidden="true">+</span><span><strong>Choose a file</strong><small>Files are uploaded as binary; no browser-side encoding.</small></span></label>
+      <div class="dashboard-layout">
+        <aside class="sidebar" aria-label="Workspace tools">
+          <p class="sidebar-label">Workspace</p>
+          <a class="sidebar-link active" href="#files-section"><span class="nav-icon" aria-hidden="true">▤</span> My items</a>
+          <a class="sidebar-link" href="#profile-section"><span class="nav-icon" aria-hidden="true">◎</span> Private profile</a>
+
+          <div class="sidebar-divider"></div>
+          <p class="sidebar-label">Add to SecureBox</p>
+          <label class="upload-btn" for="file-upload"><span class="upload-plus" aria-hidden="true">+</span><span>New upload</span></label>
           <input id="file-upload" class="visually-hidden" type="file" accept=".jpg,.jpeg,.png,.pdf,.docx,.xlsx,.mp4">
-          <div id="upload-progress" class="progress-wrap hidden"><div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div><p id="upload-status" class="helper" role="status"></p></div>
-          <p id="upload-message" class="message" role="alert"></p>
-        </section>
+          <p class="helper sidebar-helper">Upload a file to queue validation and encryption by the SecureBox server.</p>
+          <div id="upload-progress" class="progress-wrap hidden">
+            <div class="progress-heading"><span>Upload progress</span><span class="progress-dot" aria-hidden="true"></span></div>
+            <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
+            <p id="upload-status" class="helper" role="status"></p>
+          </div>
+          <p id="upload-message" class="message" role="alert" aria-live="polite"></p>
 
-        <section class="card profile-card" aria-labelledby="profile-heading">
-          <div class="section-heading"><div><p class="eyebrow">02 / Protect</p><h3 id="profile-heading">Private profile</h3></div><button id="load-profile" class="button quiet small" type="button">Load saved profile</button></div>
-          <p class="helper">Only include fields needed for the assignment. Sensitive fields are optional. Use fabricated values for demos.</p>
-          <form id="profile-form" class="profile-grid">
-            <div class="field full"><label for="profile-name">Display name</label><input id="profile-name" name="display_name" maxlength="100" required></div>
-            <div class="field"><label for="profile-email">Email</label><input id="profile-email" name="contact_email" type="email" maxlength="254"></div>
-            <div class="field"><label for="profile-phone">Phone</label><input id="profile-phone" name="phone" maxlength="40"></div>
-            <div class="field"><label for="profile-dob">Date of birth</label><input id="profile-dob" name="date_of_birth" type="date"></div>
-            <div class="field"><label for="profile-id">ID number</label><input id="profile-id" name="national_id" maxlength="64"></div>
-            <div class="field full"><label for="profile-address">Address</label><input id="profile-address" name="address" maxlength="200"></div>
-            <div class="field full actions"><button class="button primary" type="submit">Save encrypted profile</button><span id="profile-message" class="message" role="status"></span></div>
-          </form>
-        </section>
+          <div class="sidebar-divider"></div>
+          <div class="sidebar-guide">
+            <span class="guide-icon" aria-hidden="true">i</span>
+            <strong>Supported formats</strong>
+            <p>JPG, JPEG, PNG · up to 5 MiB<br>PDF, DOCX, XLSX · up to 10 MiB<br>MP4 · up to 20 MiB</p>
+          </div>
+          <div class="sidebar-bottom-note"><span class="shield-icon" aria-hidden="true">◇</span><span>Private storage<br><small>Use synthetic test data only.</small></span></div>
+        </aside>
+
+        <main class="dashboard-main">
+          <section class="page-intro">
+            <div>
+              <p class="eyebrow">Your secure workspace</p>
+              <h1>My encrypted files</h1>
+              <p>Store a file or private profile snapshot, then compare AES, DES, and RC4 results processed by the backend.</p>
+            </div>
+            <div class="intro-chip"><span class="chip-dot" aria-hidden="true"></span> Server-side processing</div>
+          </section>
+          <p id="app-message" class="message app-message" role="alert" aria-live="polite"></p>
+
+          <section id="profile-section" class="card profile-card" aria-labelledby="profile-heading">
+            <div class="section-heading">
+              <div class="heading-title-wrap"><span class="section-number">01</span><div><p class="eyebrow">Protected snapshot</p><h2 id="profile-heading">Private profile</h2></div></div>
+              <button id="load-profile" class="button outline small" type="button"><span aria-hidden="true">↻</span> Load saved profile</button>
+            </div>
+            <p class="section-copy">Save only the fields needed for your demonstration. The backend encrypts and queues the profile snapshot just like an uploaded file.</p>
+            <form id="profile-form" class="profile-grid">
+              <div class="field full"><label for="profile-name">Display name <span class="required-mark">*</span></label><input id="profile-name" name="display_name" maxlength="100" placeholder="e.g. Alex Morgan" required></div>
+              <div class="field"><label for="profile-email">Email address</label><input id="profile-email" name="contact_email" type="email" maxlength="254" placeholder="alex@example.test"></div>
+              <div class="field"><label for="profile-phone">Phone number</label><input id="profile-phone" name="phone" maxlength="40" placeholder="Optional"></div>
+              <div class="field"><label for="profile-dob">Date of birth</label><input id="profile-dob" name="date_of_birth" type="date"></div>
+              <div class="field"><label for="profile-id">ID number</label><input id="profile-id" name="national_id" maxlength="64" placeholder="Optional demo value"></div>
+              <div class="field full"><label for="profile-address">Address</label><input id="profile-address" name="address" maxlength="200" placeholder="Optional demo address"></div>
+              <div class="field full profile-actions"><button class="button primary" type="submit">Save encrypted profile <span aria-hidden="true">→</span></button><span id="profile-message" class="message" role="status" aria-live="polite"></span></div>
+            </form>
+          </section>
+
+          <section id="files-section" class="card file-list-card" aria-labelledby="files-heading">
+            <div class="section-heading file-heading">
+              <div class="heading-title-wrap"><span class="section-number">02</span><div><p class="eyebrow">Stored content</p><h2 id="files-heading">Your items</h2></div></div>
+              <button id="refresh-items" class="button outline small" type="button"><span aria-hidden="true">↻</span> Refresh</button>
+            </div>
+            <div class="table-toolbar"><span>Files and profile snapshots</span><span class="table-hint">Compare is available when processing is complete</span></div>
+            <div class="table-scroll"><table class="item-table"><thead><tr><th scope="col">Name</th><th scope="col">Format</th><th scope="col">Size</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead><tbody id="file-list"></tbody></table></div>
+            <p id="empty-state" class="empty-state"><span class="empty-icon" aria-hidden="true">▤</span><strong>No items yet</strong><span>Upload a test file or save a profile snapshot to get started.</span></p>
+            <div class="item-list-footer"><button id="load-more" class="button outline small" type="button" hidden>Load more</button><span id="items-status" class="helper" role="status" aria-live="polite"></span></div>
+          </section>
+
+          <section class="privacy-footnote"><span class="footnote-icon" aria-hidden="true">i</span><div><strong>Demo privacy notice</strong><p>Use synthetic data only. Deleting an item schedules encrypted-object cleanup. This educational tool does not provide end-to-end encryption, and provider backups may persist until their configured expiry.</p></div><button id="delete-account" class="button danger-outline small" type="button">Delete account and data</button></section>
+          <footer><a href="/static/privacy.html">Privacy and data handling ↗</a><span>SecureBox <span class="footer-separator">·</span> Educational cipher comparison</span></footer>
+        </main>
       </div>
 
-      <section class="card file-list-card" aria-labelledby="files-heading">
-        <div class="section-heading"><div><p class="eyebrow">03 / Compare</p><h3 id="files-heading">Your items</h3></div><button id="refresh-items" class="button quiet small" type="button">Refresh</button></div>
-        <div class="table-scroll"><table class="item-table"><thead><tr><th scope="col">Name</th><th scope="col">Format</th><th scope="col">Size</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead><tbody id="file-list"></tbody></table></div>
-        <p id="empty-state" class="empty-state">Nothing stored yet. Add a synthetic test file or profile above.</p>
-        <div class="item-list-footer"><button id="load-more" class="button quiet small" type="button" hidden>Load more</button><span id="items-status" class="helper" role="status" aria-live="polite"></span></div>
-        <div class="compare-panel hidden" id="compare-panel" aria-live="polite">
-          <div class="compare-head"><div><p class="eyebrow">Cipher comparison</p><h3 id="compare-title"></h3></div><button id="close-compare" class="button quiet small" type="button">Close</button></div>
+      <!-- Comparison modal uses real variant metadata and ciphertext previews from the API. -->
+      <section id="compare-panel" class="compare-panel hidden" role="dialog" aria-modal="true" aria-labelledby="compare-title">
+        <div class="modal-content">
+          <div class="modal-topline"><p class="eyebrow">03 / Analyze</p><button id="close-compare" class="modal-close" type="button" aria-label="Close comparison">×</button></div>
+          <div class="compare-head"><div><h2>Encryption analysis report</h2><p id="compare-title" class="subtitle"></p></div><span class="report-label">CIPHER REPORT</span></div>
           <div id="compare-grid" class="compare-grid"></div>
-          <div class="analysis-note"><strong>Interpretation</strong><p>AES‑128‑CBC is unauthenticated by itself. DES has only 56 effective key bits. RC4 has known biases. The at-rest AES‑256‑GCM envelope supplies integrity; timings depend on the selected backend and host.</p></div>
-          <div class="compare-actions"><button id="run-benchmark" class="button secondary" type="button">Run 5-sample benchmark</button><button id="load-profile-compare" class="button quiet hidden" type="button">Show decrypted profile</button><span id="benchmark-message" class="message" role="status"></span></div>
+          <div class="analysis-note"><strong><span aria-hidden="true">ⓘ</span> How to read these results</strong><p>AES-128-CBC is unauthenticated by itself. DES and RC4 are obsolete and shown for education only. SecureBox's separate AES-256-GCM envelope protects stored objects. Timing depends on the selected backend and host.</p></div>
+          <div class="compare-actions"><button id="run-benchmark" class="button primary" type="button">Run 5-sample benchmark <span aria-hidden="true">→</span></button><button id="load-profile-compare" class="button outline hidden" type="button">Load latest profile into form</button><span id="benchmark-message" class="message" role="status" aria-live="polite"></span></div>
           <pre id="benchmark-output" class="benchmark-output hidden"></pre>
+          <div class="modal-footer"><span>Results are generated by the SecureBox backend.</span><button class="button quiet small" type="button" id="close-compare-footer">Close report</button></div>
         </div>
       </section>
-
-      <section class="privacy-footnote"><strong>Demo privacy:</strong> use synthetic data only. Deletion closes the account immediately and retries encrypted object cleanup; provider backups can persist until their configured expiry. Do not upload real identity documents. <button id="delete-account" class="button quiet small" type="button">Delete my account and data</button></section>
-      <footer><a href="/static/privacy.html">Privacy and data handling</a><span>SecureBox · educational comparison</span></footer>
     </section>
-  </main>
+  </div>
 </body>
 </html>
