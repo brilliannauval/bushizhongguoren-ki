@@ -1,0 +1,49 @@
+# requirements.lock — pinned dependency hashes for SecureBox (Fix 10)
+#
+# Generated with:
+#   pip-compile --generate-hashes --output-file requirements.lock requirements.txt
+#
+# This file must be committed to version control and used for all installs:
+#   pip install --require-hashes -r requirements.lock
+#
+# To regenerate after changing requirements.txt:
+#   pip-compile --generate-hashes --output-file requirements.lock requirements.txt
+#
+# ---------------------------------------------------------------------------
+# IMPORTANT: Do NOT manually edit this file. Regenerate it whenever you
+# update requirements.txt, then review and commit the diff.
+# ---------------------------------------------------------------------------
+#
+# Placeholder: run the command above in an environment with pip-tools installed
+# to populate real sha256 hashes.  The Dockerfile and CI workflow will refuse
+# to install without hashes once this file is populated.
+#
+# Minimum viable entries (hashes must be filled in by pip-compile):
+fastapi==0.143.0 \
+    --hash=sha256:PLACEHOLDER_REGENERATE_WITH_PIP_COMPILE
+starlette==1.7.0 \
+    --hash=sha256:PLACEHOLDER_REGENERATE_WITH_PIP_COMPILE
+uvicorn[standard]==0.34.0 \
+    --hash=sha256:PLACEHOLDER_REGENERATE_WITH_PIP_COMPILE
+SQLAlchemy==2.0.40 \
+    --hash=sha256:PLACEHOLDER_REGENERATE_WITH_PIP_COMPILE
+alembic==1.15.2 \
+    --hash=sha256:PLACEHOLDER_REGENERATE_WITH_PIP_COMPILE
+psycopg[binary]==3.2.6 \
+    --hash=sha256:PLACEHOLDER_REGENERATE_WITH_PIP_COMPILE
+python-multipart==0.0.32 \
+    --hash=sha256:PLACEHOLDER_REGENERATE_WITH_PIP_COMPILE
+argon2-cffi==23.1.0 \
+    --hash=sha256:PLACEHOLDER_REGENERATE_WITH_PIP_COMPILE
+pycryptodome==3.22.0 \
+    --hash=sha256:PLACEHOLDER_REGENERATE_WITH_PIP_COMPILE
+Pillow==12.3.0 \
+    --hash=sha256:PLACEHOLDER_REGENERATE_WITH_PIP_COMPILE
+pypdf==6.20.0 \
+    --hash=sha256:PLACEHOLDER_REGENERATE_WITH_PIP_COMPILE
+boto3==1.37.18 \
+    --hash=sha256:PLACEHOLDER_REGENERATE_WITH_PIP_COMPILE
+pytest==9.1.1 \
+    --hash=sha256:PLACEHOLDER_REGENERATE_WITH_PIP_COMPILE
+httpx==0.28.1 \
+    --hash=sha256:PLACEHOLDER_REGENERATE_WITH_PIP_COMPILE

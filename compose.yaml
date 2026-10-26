@@ -5,23 +5,37 @@ services:
       POSTGRES_DB: securebox
       POSTGRES_USER: securebox
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    command: >
+      postgres
+        -c ssl=on
+        -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+        -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+        -c ssl_prefer_server_ciphers=on
+        -c password_encryption=scram-sha-256
     networks:
       securebox-net:
         ipv4_address: ${SECUREBOX_DB_IP:-172.29.240.3}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U securebox -d securebox"]
+      test: [ "CMD-SHELL", "pg_isready -U securebox -d securebox" ]
       interval: 5s
       timeout: 3s
       retries: 10
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run/postgresql
 
   securebox:
     build: .
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+psycopg://securebox:${POSTGRES_PASSWORD}@db:5432/securebox
+      DATABASE_URL: postgresql+psycopg://securebox:${POSTGRES_PASSWORD}@db:5432/securebox?sslmode=require
       OBJECT_DIR: /data/objects
       APP_ENV: development
       REGISTRATION_MODE: open
@@ -35,11 +49,20 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health',timeout=3)"]
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health',timeout=3)" ]
       interval: 15s
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    # Fix 6: runtime containment controls for the application container.
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp/securebox-objects:uid=10001,gid=10001
+      - /tmp:uid=10001,gid=10001
+    cap_drop:
+      - ALL
 
   gateway:
     image: nginx:1.27-alpine
@@ -54,6 +77,13 @@ services:
       securebox:
         condition: service_healthy
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
 
 volumes:
   postgres-data:

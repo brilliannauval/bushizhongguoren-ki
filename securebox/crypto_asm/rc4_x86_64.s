@@ -5,8 +5,9 @@
 # -----------------------------------------------------------------------------
 
 .text
-.globl asm_rc4_init
-.type asm_rc4_init, @function
+# asm_rc4_init is intentionally NOT exported; it has a register-use bug
+# (reads %r13d before initialisation and clobbers the keylen in %edx via %ecx).
+# Use asm_rc4_init_safe for all callers.
 
 # void asm_rc4_init(unsigned char *state, const unsigned char *key, int keylen)
 # Args:

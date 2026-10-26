@@ -38,3 +38,66 @@ services:
         value: "30"
       - key: USER_STORAGE_LIMIT_BYTES
         value: "104857600"
+
+  - type: worker
+    name: securebox-worker
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerCommand: python -m securebox.jobs.worker_entrypoint
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: KEK_V1
+        sync: false
+      - key: RATE_LIMIT_PEPPER_V1
+        sync: false
+      - key: ITEM_TTL_DAYS
+        value: "30"
+      - key: USER_STORAGE_LIMIT_BYTES
+        value: "104857600"
+
+  - type: job
+    name: securebox-migrate
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerCommand: alembic upgrade head
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+
+  - type: cron
+    name: securebox-backup
+    runtime: docker
+    plan: free
+    region: singapore
+    schedule: "0 2 * * *"
+    dockerCommand: python -m securebox.jobs.backup
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: BACKUP_RETENTION_DAYS
+        value: "30"
