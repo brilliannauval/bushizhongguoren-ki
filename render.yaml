@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: securebox
+    runtime: docker
+    plan: free
+    region: singapore
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: REGISTRATION_MODE
+        value: invite
+      - key: DATABASE_URL
+        sync: false
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: KEK_V1
+        sync: false
+      - key: RATE_LIMIT_PEPPER_V1
+        sync: false
+      - key: INVITATION_CODE
+        sync: false
+      - key: PUBLIC_ORIGIN
+        sync: false
+      - key: CONTROLLER_NAME
+        sync: false
+      - key: PRIVACY_CONTACT
+        sync: false
+      - key: BACKUP_RETENTION_DAYS
+        value: "30"
+      - key: ITEM_TTL_DAYS
+        value: "30"
+      - key: USER_STORAGE_LIMIT_BYTES
+        value: "104857600"
