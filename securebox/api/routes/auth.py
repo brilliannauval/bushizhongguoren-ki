@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from ...config import Settings, get_settings
 from ...database import get_db
-from ...models import BenchmarkRun, Item, SessionRecord, User, UserWorkSlot
+from ...models import BenchmarkRun, Item, SessionRecord, User, UserWorkSlot, now_utc
 from ...security import (
     SESSION_COOKIE,
     Principal,
@@ -136,19 +136,25 @@ def delete_me(
                 object_keys.append(item.job.staging_object_key)
             if item.job.state == "processing":
                 active_work_ids.add(item.job.id)
+                item.job.lease_token = None
+                item.job.lease_until = now_utc()
             else:
                 item.job.state = "deleted"
                 item.job.error_code = None
                 item.job.lease_until = None
+                item.job.lease_token = None
 
     runs = db.scalars(select(BenchmarkRun).where(BenchmarkRun.owner_id == user.id).with_for_update()).all()
     for run in runs:
         if run.state == "processing":
             active_work_ids.add(run.id)
+            run.lease_token = None
+            run.lease_until = now_utc()
         else:
             run.state = "deleted"
             run.error_code = None
             run.lease_until = None
+            run.lease_token = None
             run.result_json = None
 
     enqueue_object_cleanup(db, object_keys, user.id)

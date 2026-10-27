@@ -7,7 +7,7 @@ from pypdf import PdfWriter
 import pytest
 from PIL import Image
 
-from securebox.config import _validate_public_origin
+from securebox.config import _validate_database_tls, _validate_public_origin
 from securebox.validation import InvalidUpload, validate_file
 
 
@@ -118,3 +118,25 @@ def test_production_public_origin_is_fixed_and_https_only():
         _validate_public_origin("https://securebox.example/path", development=False)
     with pytest.raises(RuntimeError, match="only the public scheme"):
         _validate_public_origin("http://securebox.example", development=False)
+
+
+def test_production_database_requires_verified_tls_and_ca(tmp_path):
+    ca_file = tmp_path / "postgres-ca.pem"
+    ca_file.write_text("test CA", encoding="ascii")
+    verified_url = f"postgresql+psycopg://user:pass@db.example/securebox?sslmode=verify-full&sslrootcert={ca_file}"
+
+    _validate_database_tls(verified_url, development=False)
+    _validate_database_tls(
+        "postgresql+psycopg://user:pass@db/securebox?sslmode=disable",
+        development=True,
+    )
+    with pytest.raises(RuntimeError, match="verify-full"):
+        _validate_database_tls(
+            "postgresql+psycopg://user:pass@db/securebox?sslmode=require",
+            development=False,
+        )
+    with pytest.raises(RuntimeError, match="CA certificate"):
+        _validate_database_tls(
+            "postgresql+psycopg://user:pass@db/securebox?sslmode=verify-full&sslrootcert=/missing/ca.pem",
+            development=False,
+        )

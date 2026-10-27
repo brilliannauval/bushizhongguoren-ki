@@ -20,7 +20,7 @@ from ...database import get_db
 from ...envelope import open_payload, unpack_inner_material, variant_aad
 from ...jobs import ALGORITHMS
 from ...jobs.common import enqueue_object_cleanup
-from ...models import BenchmarkRun, CipherVariant, Item, User, UserWorkSlot
+from ...models import BenchmarkRun, CipherVariant, Item, User, UserWorkSlot, now_utc
 from ...security import Principal
 from ...validation import InvalidUpload, validate_file
 from ..dependencies import _csrf, _network, _principal, _rate
@@ -153,19 +153,27 @@ def delete_item(item_id: str, request: Request, csrf_token: str | None = Header(
     if item.job:
         if item.job.staging_object_key:
             keys.append(item.job.staging_object_key)
-        if item.job.state != "processing":
+        if item.job.state == "processing":
+            item.job.lease_token = None
+            item.job.lease_until = now_utc()
+        else:
             item.job.state = "deleted"
             item.job.error_code = None
             item.job.lease_until = None
+            item.job.lease_token = None
             slot = db.get(UserWorkSlot, principal.user_id)
             if slot and slot.work_id == item.job.id:
                 db.delete(slot)
     runs = db.scalars(select(BenchmarkRun).where(BenchmarkRun.item_id == item.id).with_for_update()).all()
     for run in runs:
-        if run.state != "processing":
+        if run.state == "processing":
+            run.lease_token = None
+            run.lease_until = now_utc()
+        else:
             run.state = "deleted"
             run.error_code = None
             run.lease_until = None
+            run.lease_token = None
             run.result_json = None
             slot = db.get(UserWorkSlot, principal.user_id)
             if slot and slot.work_id == run.id:

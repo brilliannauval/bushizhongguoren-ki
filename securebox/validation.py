@@ -163,6 +163,17 @@ def _boxes(data: bytes) -> list[tuple[bytes, int, int]]:
     return boxes
 
 
+def _ffprobe_limits() -> None:
+    import resource
+
+    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+    resource.setrlimit(resource.RLIMIT_CPU, (2, 2))
+    memory_limit = 256 * 1024 * 1024
+    resource.setrlimit(resource.RLIMIT_AS, (memory_limit, memory_limit))
+    resource.setrlimit(resource.RLIMIT_NOFILE, (16, 16))
+    os.umask(0o077)
+
+
 def _validate_mp4(data: bytes) -> None:
     boxes = _boxes(data)
     if not boxes or boxes[0][0] != b"ftyp" or not any(box[0] == b"moov" for box in boxes) or not any(box[0] == b"mdat" for box in boxes):
@@ -178,6 +189,10 @@ def _validate_mp4(data: bytes) -> None:
             stderr=subprocess.DEVNULL,
             timeout=3,
             check=False,
+            cwd="/tmp",
+            env={"PATH": os.defpath, "LANG": "C"},
+            preexec_fn=_ffprobe_limits if os.name == "posix" else None,
+            close_fds=True,
         )
         if result.returncode != 0 or len(result.stdout) > 64 * 1024:
             raise InvalidUpload("invalid_mp4")

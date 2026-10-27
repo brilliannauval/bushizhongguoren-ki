@@ -3,9 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from datetime import timedelta
+import uuid
 
-from sqlalchemy import and_, or_, select, update
+from sqlalchemy import and_, or_, select
 
 from ..config import Settings
 from ..crypto import CryptoProvider
@@ -14,6 +14,7 @@ from ..envelope import metadata_aad, open_metadata, open_payload, unpack_inner_m
 from ..models import BenchmarkRun, CipherVariant, Item, User, now_utc
 from ..storage import PrivateObjectStore
 from .common import ALGORITHMS, _release_slot
+from .leases import LeaseHeartbeat, claim_lease
 
 logger = logging.getLogger(__name__)
 
@@ -43,18 +44,21 @@ def _load_plaintext(item: Item, settings: Settings, store: PrivateObjectStore) -
 def process_benchmark(run_id: str, settings: Settings, store: PrivateObjectStore, crypto: CryptoProvider) -> None:
     owner_id = None
     item_id = None
+    lease_token = None
     with SessionLocal() as db:
         run = db.get(BenchmarkRun, run_id)
         if not run:
             return
         owner_id = run.owner_id
         now = now_utc()
-        claim = update(BenchmarkRun).where(
-            BenchmarkRun.id == run_id,
-            or_(BenchmarkRun.state == "queued", and_(BenchmarkRun.state == "processing", BenchmarkRun.lease_until < now)),
-            BenchmarkRun.attempt_count < 2,
-        ).values(state="processing", attempt_count=BenchmarkRun.attempt_count + 1, lease_until=now + timedelta(minutes=10))
-        if db.execute(claim).rowcount != 1:
+        lease_token = claim_lease(
+            db,
+            BenchmarkRun,
+            run_id,
+            max_attempts=2,
+            lease_seconds=600,
+        )
+        if lease_token is None:
             db.rollback()
             owner = db.scalar(
                 select(User).where(User.id == owner_id).with_for_update().execution_options(populate_existing=True)
@@ -88,6 +92,7 @@ def process_benchmark(run_id: str, settings: Settings, store: PrivateObjectStore
                 current_run.state = "deleted" if deleted else "failed"
                 current_run.error_code = None if deleted else "retry_limit_exceeded"
                 current_run.lease_until = None
+                current_run.lease_token = None
                 if deleted:
                     current_run.result_json = None
                 _release_slot(db, current_run.owner_id, current_run.id)
@@ -95,6 +100,10 @@ def process_benchmark(run_id: str, settings: Settings, store: PrivateObjectStore
             return
         db.commit()
 
+    if lease_token is None:
+        return
+    heartbeat = LeaseHeartbeat(BenchmarkRun, run_id, lease_token, lease_seconds=600)
+    heartbeat.start()
     try:
         with SessionLocal() as db:
             owner = db.scalar(
@@ -102,7 +111,11 @@ def process_benchmark(run_id: str, settings: Settings, store: PrivateObjectStore
             ) if owner_id else None
             run = db.scalar(
                 select(BenchmarkRun)
-                .where(BenchmarkRun.id == run_id)
+                .where(
+                    BenchmarkRun.id == run_id,
+                    BenchmarkRun.state == "processing",
+                    BenchmarkRun.lease_token == lease_token,
+                )
                 .with_for_update()
                 .execution_options(populate_existing=True)
             )
@@ -118,12 +131,10 @@ def process_benchmark(run_id: str, settings: Settings, store: PrivateObjectStore
                     run.state = "deleted"
                     run.error_code = None
                     run.lease_until = None
+                    run.lease_token = None
                     run.result_json = None
-                _release_slot(db, owner_id, run_id)
-                db.commit()
-                return
-            if run.state != "processing":
-                _release_slot(db, owner_id, run_id)
+                if run:
+                    _release_slot(db, owner_id, run_id)
                 db.commit()
                 return
             item_id = run.item_id
@@ -156,22 +167,39 @@ def process_benchmark(run_id: str, settings: Settings, store: PrivateObjectStore
                     Item.status == "complete",
                 ).with_for_update().execution_options(populate_existing=True)
             ) if item_id else None
+            if not run:
+                db.rollback()
+                return
+            if run.lease_token != lease_token or not heartbeat.owned:
+                deletion_was_requested = (
+                    run.state == "processing"
+                    and run.lease_token is None
+                    and (not owner or owner.deleted_at is not None or not item)
+                )
+                if deletion_was_requested:
+                    run.state = "deleted"
+                    run.error_code = None
+                    run.lease_until = None
+                    run.result_json = None
+                    _release_slot(db, owner_id, run_id)
+                    db.commit()
+                else:
+                    db.rollback()
+                return
             if not owner or owner.deleted_at is not None or not item:
                 if run:
                     run.state = "deleted"
                     run.error_code = None
                     run.lease_until = None
+                    run.lease_token = None
                     run.result_json = None
-                _release_slot(db, owner_id, run_id)
-                db.commit()
-                return
-            if not run or run.state != "processing":
-                _release_slot(db, owner_id, run_id)
+                    _release_slot(db, owner_id, run_id)
                 db.commit()
                 return
             run.result_json = json.dumps(results, separators=(",", ":"))
             run.state = "complete"
             run.lease_until = None
+            run.lease_token = None
             run.error_code = None
             _release_slot(db, run.owner_id, run.id)
             db.commit()
@@ -191,16 +219,18 @@ def process_benchmark(run_id: str, settings: Settings, store: PrivateObjectStore
                         Item.status == "complete",
                     ).with_for_update()
                 ) if item_id and owner_id else None
-                if run.state == "processing":
+                if run.state == "processing" and run.lease_token == lease_token:
                     deleted = not owner or owner.deleted_at is not None or not item
                     run.state = "deleted" if deleted else "failed"
                     run.error_code = None if deleted else "benchmark_failed"
                     run.lease_until = None
+                    run.lease_token = None
                     if deleted:
                         run.result_json = None
                     _release_slot(db, run.owner_id, run.id)
                 db.commit()
             elif owner_id:
-                _release_slot(db, owner_id, run_id)
-                db.commit()
+                db.rollback()
         logger.error("benchmark_failed run_id=%s error_type=%s", run_id, type(exc).__name__)
+    finally:
+        heartbeat.stop()

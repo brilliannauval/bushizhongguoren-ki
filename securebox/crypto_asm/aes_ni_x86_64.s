@@ -7,6 +7,7 @@
 
 .text
 .globl asm_aes128_key_expansion
+.hidden asm_aes128_key_expansion
 .type asm_aes128_key_expansion, @function
 
 # void asm_aes128_key_expansion(const unsigned char *key, unsigned char *enc_keys, unsigned char *dec_keys)
@@ -107,6 +108,10 @@ asm_aes128_key_expansion:
     movdqu  %xmm0, 160(%rdx)
 
 .Lkey_exp_ret:
+    pxor    %xmm0, %xmm0
+    pxor    %xmm1, %xmm1
+    pxor    %xmm2, %xmm2
+    pxor    %xmm3, %xmm3
     ret
 
 .Laes128_assist:
@@ -126,6 +131,7 @@ asm_aes128_key_expansion:
 # CBC Mode Encryption (Pure Assembly with Hardware AES-NI)
 # -----------------------------------------------------------------------------
 .globl asm_aes128_cbc_encrypt
+.hidden asm_aes128_key_expansion
 .type asm_aes128_cbc_encrypt, @function
 # void asm_aes128_cbc_encrypt(const unsigned char *in, unsigned char *out, size_t len,
 #                             const unsigned char *key, const unsigned char *iv)
@@ -181,6 +187,15 @@ asm_aes128_cbc_encrypt:
     jnz     .Lcbc_enc_loop
 
 .Lcbc_enc_done:
+    movq    %rsp, %rdi
+    xorl    %eax, %eax
+    movq    $22, %rcx
+    rep stosq
+    pxor    %xmm0, %xmm0
+    pxor    %xmm1, %xmm1
+    pxor    %xmm2, %xmm2
+    pxor    %xmm3, %xmm3
+    pxor    %xmm4, %xmm4
     addq    $176, %rsp
     popq    %r15
     popq    %r14
@@ -194,6 +209,7 @@ asm_aes128_cbc_encrypt:
 # CBC Mode Decryption (Pure Assembly with Hardware AES-NI)
 # -----------------------------------------------------------------------------
 .globl asm_aes128_cbc_decrypt
+.hidden asm_aes128_key_expansion
 .type asm_aes128_cbc_decrypt, @function
 # void asm_aes128_cbc_decrypt(const unsigned char *in, unsigned char *out, size_t len,
 #                             const unsigned char *key, const unsigned char *iv)
@@ -250,6 +266,16 @@ asm_aes128_cbc_decrypt:
     jnz     .Lcbc_dec_loop
 
 .Lcbc_dec_done:
+    movq    %rsp, %rdi
+    xorl    %eax, %eax
+    movq    $44, %rcx
+    rep stosq
+    pxor    %xmm0, %xmm0
+    pxor    %xmm1, %xmm1
+    pxor    %xmm2, %xmm2
+    pxor    %xmm3, %xmm3
+    pxor    %xmm4, %xmm4
+    pxor    %xmm5, %xmm5
     addq    $352, %rsp
     popq    %r15
     popq    %r14
@@ -263,6 +289,7 @@ asm_aes128_cbc_decrypt:
 # Single Block Helpers (Kept for completeness)
 # -----------------------------------------------------------------------------
 .globl asm_aes128_encrypt_block
+.hidden asm_aes128_encrypt_block
 .type asm_aes128_encrypt_block, @function
 asm_aes128_encrypt_block:
     movdqu  (%rdi), %xmm0
@@ -292,6 +319,7 @@ asm_aes128_encrypt_block:
     ret
 
 .globl asm_aes128_decrypt_block
+.hidden asm_aes128_decrypt_block
 .type asm_aes128_decrypt_block, @function
 asm_aes128_decrypt_block:
     movdqu  (%rdi), %xmm0

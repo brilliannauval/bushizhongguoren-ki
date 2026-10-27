@@ -109,13 +109,21 @@ def expire_old_items(settings: Settings, store: PrivateObjectStore) -> None:
             if item.job and item.job.state != "processing":
                 item.job.state = "deleted"
                 item.job.lease_until = None
+                item.job.lease_token = None
                 _release_slot(db, item.owner_id, item.job.id)
+            elif item.job:
+                item.job.lease_token = None
+                item.job.lease_until = now_utc()
             for run in db.scalars(select(BenchmarkRun).where(BenchmarkRun.item_id == item.id)).all():
                 if run.state != "processing":
                     run.state = "deleted"
                     run.lease_until = None
+                    run.lease_token = None
                     run.result_json = None
                     _release_slot(db, run.owner_id, run.id)
+                else:
+                    run.lease_token = None
+                    run.lease_until = now_utc()
         db.commit()
     cleanup_tombstones(store)
     cleanup_deleted_accounts()

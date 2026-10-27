@@ -8,10 +8,6 @@ services:
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
     command: >
       postgres
-        -c ssl=on
-        -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
-        -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
-        -c ssl_prefer_server_ciphers=on
         -c password_encryption=scram-sha-256
     networks:
       securebox-net:
@@ -36,6 +32,7 @@ services:
     env_file: .env
     environment:
       OBJECT_DIR: /data/objects
+      DATABASE_URL: postgresql+psycopg://securebox:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/securebox?sslmode=disable
       APP_ENV: development
       REGISTRATION_MODE: open
       FORWARDED_ALLOW_IPS: ${SECUREBOX_GATEWAY_IP:-172.29.240.2}

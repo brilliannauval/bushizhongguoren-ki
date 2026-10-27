@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import threading
+from dataclasses import replace
 from io import BytesIO
 from datetime import datetime, timedelta, timezone
 import time
@@ -10,6 +11,8 @@ import uuid
 
 from fastapi.testclient import TestClient
 from PIL import Image
+
+from securebox.config import get_settings
 
 
 def _png() -> bytes:
@@ -82,6 +85,23 @@ def test_registration_login_and_errors_are_generic(client):
     assert unknown_username.status_code == 401
     assert unknown_username.json()["error"]["code"] == wrong_password.json()["error"]["code"]
     assert unknown_username.json()["error"]["message"] == wrong_password.json()["error"]["message"]
+
+
+def test_untrusted_host_header_is_rejected(client):
+    response = client.get("/api/v1/health", headers={"Host": "attacker.invalid"})
+    assert response.status_code == 400
+
+
+def test_public_readiness_hides_internal_details(client):
+    settings = get_settings()
+    client.app.dependency_overrides[get_settings] = lambda: replace(settings, app_env="production")
+    try:
+        response = client.get("/api/v1/health")
+    finally:
+        client.app.dependency_overrides.pop(get_settings, None)
+
+    assert response.status_code == 200
+    assert set(response.json()) == {"status"}
 
 
 def test_cookie_mutations_require_csrf_and_same_origin(client):

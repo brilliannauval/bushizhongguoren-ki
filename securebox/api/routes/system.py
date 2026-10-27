@@ -43,7 +43,7 @@ def privacy_notice(settings: Settings = Depends(get_settings)):
 
 
 @router.get("/api/v1/health")
-def health(request: Request, db: Session = Depends(get_db)):
+def health(request: Request, db: Session = Depends(get_db), settings: Settings = Depends(get_settings)):
     try:
         db.execute(select(1))
     except Exception as exc:
@@ -54,6 +54,11 @@ def health(request: Request, db: Session = Depends(get_db)):
     heartbeat = getattr(request.app.state, "worker_heartbeat", None)
     worker = "ok" if heartbeat is not None and time.monotonic() - heartbeat < 300 else "unavailable"
     ready = storage == "ok" and worker == "ok"
+    if settings.app_env != "development":
+        return JSONResponse(
+            status_code=200 if ready else 503,
+            content={"status": "ok" if ready else "unavailable"},
+        )
     payload = {
         "status": "ok" if ready else "unavailable",
         "crypto_backend": crypto.backend,

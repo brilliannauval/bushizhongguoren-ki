@@ -6,7 +6,7 @@ import secrets
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 
 def _decode_secret(value: str | None, name: str, *, allow_ephemeral: bool) -> bytes:
@@ -47,6 +47,23 @@ def _validate_public_origin(value: str | None, *, development: bool) -> str | No
     return value.rstrip("/")
 
 
+def _validate_database_tls(database_url: str, *, development: bool) -> None:
+    scheme = urlsplit(database_url).scheme
+    if scheme not in {"postgres", "postgresql"} and not scheme.startswith("postgresql+"):
+        return
+    query = parse_qs(urlsplit(database_url).query, keep_blank_values=True)
+    sslmodes = query.get("sslmode", [])
+    if len(sslmodes) != 1 or not sslmodes[0]:
+        raise RuntimeError("PostgreSQL DATABASE_URL must set exactly one sslmode")
+    if development:
+        return
+    root_certs = query.get("sslrootcert", [])
+    if sslmodes[0] != "verify-full" or len(root_certs) != 1 or not root_certs[0]:
+        raise RuntimeError("Production PostgreSQL DATABASE_URL must use sslmode=verify-full and sslrootcert")
+    if not Path(root_certs[0]).is_file():
+        raise RuntimeError("PostgreSQL sslrootcert must point to a readable CA certificate file")
+
+
 @dataclass(frozen=True)
 class Settings:
     app_env: str
@@ -76,6 +93,7 @@ def get_settings() -> Settings:
     development = app_env == "development"
     object_dir = Path(os.getenv("OBJECT_DIR", "./var/objects")).resolve()
     database_url = os.getenv("DATABASE_URL", "sqlite:///./var/securebox.db")
+    _validate_database_tls(database_url, development=development)
     registration_mode = os.getenv("REGISTRATION_MODE", "open" if development else "invite")
     if registration_mode not in {"open", "invite", "closed"}:
         raise RuntimeError("REGISTRATION_MODE must be open, invite, or closed")

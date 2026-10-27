@@ -189,6 +189,8 @@ Docker Compose supplies the development settings. For manual development or a ho
 
 Never commit populated environment files, credentials, wrapping keys, or database/object data. Set production values through the hosting provider's secret/environment settings.
 
+Production PostgreSQL URLs must include `sslmode=verify-full` and an `sslrootcert` path to the provider's CA certificate. The same `DATABASE_URL` is used by the application and Alembic; the backup job carries its libpq TLS query parameters into `pg_dump`. The local Compose database is isolated to the development network and explicitly uses `sslmode=disable`; do not reuse that URL for deployment.
+
 ## API and testing
 
 - Interactive OpenAPI: `/api/docs`
@@ -204,3 +206,5 @@ Run the test suite from the repository root after installing `requirements.txt`:
 ```sh
 python -m pytest -q
 ```
+
+PostgreSQL claim-race coverage is opt-in. Set `TEST_POSTGRES_URL` to an isolated PostgreSQL test database before running pytest to run `tests/test_postgres_concurrency.py`; that test creates and removes a uniquely named temporary table.

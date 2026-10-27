@@ -3,12 +3,14 @@ from __future__ import annotations
 import gzip
 import logging
 import os
+import selectors
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from datetime import datetime, timezone
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
@@ -28,10 +30,8 @@ def _redact(value: str) -> str:
 def _parse_db_url(database_url: str) -> tuple[dict, dict]:
     """Return (conn_params, ssl_env) derived from *database_url*.
 
-    ``ssl_env`` contains the libpq environment variables that replicate the
-    ``sslmode`` / ``sslrootcert`` / ``sslcert`` / ``sslkey`` settings from the
-    URL query string.  This ensures pg_dump uses the same TLS policy as the
-    SQLAlchemy engine (Fix 3 & 4).
+    ``ssl_env`` contains the libpq variables that preserve the TLS settings
+    used by SQLAlchemy and Alembic.
     """
     parsed = urlsplit(database_url)
     qs = parse_qs(parsed.query)
@@ -40,8 +40,8 @@ def _parse_db_url(database_url: str) -> tuple[dict, dict]:
         "host": parsed.hostname or "localhost",
         "port": str(parsed.port or 5432),
         "dbname": (parsed.path or "").lstrip("/"),
-        "user": parsed.username or "",
-        "password": parsed.password or "",
+        "user": unquote(parsed.username or ""),
+        "password": unquote(parsed.password or ""),
     }
 
     ssl_env: dict[str, str] = {}
@@ -56,20 +56,15 @@ def _parse_db_url(database_url: str) -> tuple[dict, dict]:
         if val:
             ssl_env[env_key] = val
 
-    if "PGSSLMODE" not in ssl_env and parsed.scheme.startswith("postgresql"):
-        ssl_env["PGSSLMODE"] = "require"
+    if (parsed.scheme == "postgres" or parsed.scheme.startswith("postgresql")) and "PGSSLMODE" not in ssl_env:
+        raise ValueError("PostgreSQL DATABASE_URL must set sslmode")
 
     return conn, ssl_env
 
 
 def _dump_to_file(conn: dict, ssl_env: dict, dest_path: str) -> None:
-    """Stream pg_dump into *dest_path* (gzip-compressed) without buffering.
-
-    Fix 4: uses ``stdout=<file>`` piped through gzip — the dump is never
-    fully resident in Python memory.
-    """
-    env = {k: v for k, v in os.environ.items() if not k.startswith("PG")}
-    env["PGPASSWORD"] = conn["password"]
+    """Stream pg_dump into a gzip file, with a bounded wall-clock time."""
+    env = {"PATH": os.environ.get("PATH", os.defpath), "LANG": "C", "PGPASSWORD": conn["password"]}
     env.update(ssl_env)
 
     cmd = [
@@ -83,24 +78,42 @@ def _dump_to_file(conn: dict, ssl_env: dict, dest_path: str) -> None:
         conn["dbname"],
     ]
 
-    with open(dest_path, "wb") as out_fh:
-        with gzip.open(out_fh, "wb", compresslevel=6) as gz_fh:
-            with subprocess.Popen(
-                cmd,
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            ) as proc:
+    with open(dest_path, "wb") as out_fh, gzip.open(out_fh, "wb", compresslevel=6) as gz_fh:
+        with subprocess.Popen(
+            cmd,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        ) as proc:
+            if proc.stdout is None:
+                raise RuntimeError("pg_dump stdout pipe was not created")
+            deadline = time.monotonic() + 300
+            with selectors.DefaultSelector() as selector:
+                selector.register(proc.stdout, selectors.EVENT_READ)
                 while True:
-                    chunk = proc.stdout.read(65536)
-                    if not chunk:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        proc.kill()
+                        proc.wait()
+                        raise subprocess.TimeoutExpired(cmd, 300)
+                    ready = selector.select(min(remaining, 1))
+                    if ready:
+                        chunk = os.read(proc.stdout.fileno(), 65536)
+                        if chunk:
+                            gz_fh.write(chunk)
+                            continue
+                        selector.unregister(proc.stdout)
                         break
-                    gz_fh.write(chunk)
-                proc.wait(timeout=300)
-                if proc.returncode != 0:
-                    raw_err = proc.stderr.read().decode(errors="replace")
-                    safe_err = raw_err.replace(conn["password"], "****") if conn["password"] else raw_err
-                    raise subprocess.CalledProcessError(proc.returncode, cmd, stderr=safe_err.encode())
+                    if proc.poll() is not None:
+                        break
+            try:
+                return_code = proc.wait(timeout=max(0, deadline - time.monotonic()))
+            except subprocess.TimeoutExpired as exc:
+                proc.kill()
+                proc.wait()
+                raise subprocess.TimeoutExpired(cmd, 300) from exc
+            if return_code != 0:
+                raise subprocess.CalledProcessError(return_code, cmd)
 
 
 def _s3_client(settings):
@@ -166,9 +179,8 @@ def run_backup() -> None:
             _dump_to_file(conn, ssl_env, tmp_path)
         except subprocess.CalledProcessError as exc:
             logger.error(
-                "backup_dump_failed returncode=%d stderr=%s",
+                "backup_dump_failed returncode=%d",
                 exc.returncode,
-                exc.stderr.decode(errors="replace") if exc.stderr else "",
             )
             sys.exit(1)
         except subprocess.TimeoutExpired:

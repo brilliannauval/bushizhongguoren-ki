@@ -186,6 +186,7 @@ feistel_f:
 	.size	feistel_f, .-feistel_f
 	.p2align 4
 	.globl	asm_des_key_schedule
+	.hidden	asm_des_key_schedule
 	.type	asm_des_key_schedule, @function
 asm_des_key_schedule:
 .LFB1:
@@ -304,6 +305,7 @@ asm_des_key_schedule:
 	.size	asm_des_key_schedule, .-asm_des_key_schedule
 	.p2align 4
 	.globl	asm_des_encrypt_block
+	.hidden	asm_des_encrypt_block
 	.type	asm_des_encrypt_block, @function
 asm_des_encrypt_block:
 .LFB3:
@@ -472,6 +474,7 @@ asm_des_encrypt_block:
 	.size	asm_des_encrypt_block, .-asm_des_encrypt_block
 	.p2align 4
 	.globl	asm_des_decrypt_block
+	.hidden	asm_des_decrypt_block
 	.type	asm_des_decrypt_block, @function
 asm_des_decrypt_block:
 .LFB4:
@@ -701,6 +704,19 @@ asm_des_cbc_crypt:
 	movq	224(%rsp), %rbp
 	movq	232(%rsp), %r12
 	movq	256(%rsp), %r15
+	movq	%rsp, %rdi
+	xorl	%eax, %eax
+	movq	$25, %rcx
+	rep stosq
+	xorl	%edx, %edx
+	xorl	%ecx, %ecx
+	xorl	%esi, %esi
+	xorl	%r8d, %r8d
+	xorl	%r9d, %r9d
+	xorl	%r10d, %r10d
+	xorl	%r11d, %r11d
+	pxor	%xmm0, %xmm0
+	pxor	%xmm1, %xmm1
 	addq	$264, %rsp
 	.cfi_def_cfa_offset 8
 	ret
