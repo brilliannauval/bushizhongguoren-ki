@@ -71,7 +71,7 @@ jobs:
         run: |
           pip install checksec.py 2>/dev/null || true
           if command -v checksec &>/dev/null; then
-            checksec --file=securebox/crypto_asm/libcrypto_asm.so
+            checksec securebox/crypto_asm/libcrypto_asm.so
           else
             # Fallback: manual RELRO and NX-stack check via readelf.
             readelf -d securebox/crypto_asm/libcrypto_asm.so | grep -E "BIND_NOW|RELRO" \
