@@ -23,10 +23,11 @@ jobs:
       - name: Install pip-tools and pip-audit
         run: pip install pip-tools pip-audit
 
+      
+
       - name: Verify lockfile is up-to-date
         run: |
-          pip-compile --generate-hashes --allow-unsafe \
-            --output-file requirements.lock.ci requirements.txt
+          pip-compile --generate-hashes --allow-unsafe -o requirements.lock.ci requirements.txt
           diff requirements.lock requirements.lock.ci || \
             (echo "::error::requirements.lock is out of date. Run:" \
              "pip-compile --generate-hashes --allow-unsafe -o requirements.lock requirements.txt" \
