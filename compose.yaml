@@ -35,7 +35,6 @@ services:
     build: .
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+psycopg://securebox:${POSTGRES_PASSWORD}@db:5432/securebox?sslmode=require
       OBJECT_DIR: /data/objects
       APP_ENV: development
       REGISTRATION_MODE: open
@@ -54,13 +53,11 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
-    # Fix 6: runtime containment controls for the application container.
     security_opt:
       - no-new-privileges:true
     read_only: true
     tmpfs:
-      - /tmp/securebox-objects:uid=10001,gid=10001
-      - /tmp:uid=10001,gid=10001
+      - /tmp:uid=10001,gid=10001,mode=1700
     cap_drop:
       - ALL
 

@@ -149,6 +149,5 @@ class ObjectCleanup(Base):
 
     __tablename__ = "object_cleanup"
     object_key: Mapped[str] = mapped_column(String(80), primary_key=True)
-    # Intentionally not a foreign key: cleanup must survive account/item cascades.
     owner_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)

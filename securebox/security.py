@@ -104,8 +104,6 @@ def renew_csrf(db: Session, principal: Principal, session_token: str | None = No
     token = _csrf_for_session(session_token)
     digest = _digest_session(token)
     if not hmac.compare_digest(record.csrf_digest, digest):
-        # Existing sessions created with random CSRF tokens migrate on the
-        # first session read; later reads leave the persisted digest stable.
         record.csrf_digest = digest
     return token
 

@@ -74,7 +74,6 @@ class CryptoProvider:
             "PATH": os.environ.get("PATH", os.defpath),
             "PYTHONDONTWRITEBYTECODE": "1",
         }
-        # Windows Python needs this for system DLL discovery when using the fallback.
         for name in ("SYSTEMROOT", "WINDIR"):
             if os.environ.get(name):
                 environment[name] = os.environ[name]

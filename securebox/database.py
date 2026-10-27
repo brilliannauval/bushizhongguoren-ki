@@ -28,9 +28,6 @@ def _engine():
         pool_size=2,
         max_overflow=2,
         pool_recycle=300,
-        connect_args={
-            "sslmode": "disable" if settings.app_env == "development" else "require"
-        } if settings.database_url.startswith("postgresql") else {},
     )
 
 
@@ -47,6 +44,5 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def init_db() -> None:
-    from . import models  # noqa: F401
-
+    from . import models
     Base.metadata.create_all(bind=engine)

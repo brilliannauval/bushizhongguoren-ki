@@ -1,16 +1,18 @@
 FROM python:3.13-slim AS build
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential make && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential make binutils && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt requirements.lock ./
 RUN python -m pip install --no-cache-dir --require-hashes -r requirements.lock
+
 COPY securebox ./securebox
 RUN make -C securebox/crypto_asm clean all
 
 FROM python:3.13-slim
+
 ENV APP_ENV=production \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    OBJECT_DIR=/tmp/securebox-objects
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
@@ -28,8 +30,8 @@ COPY migrations ./migrations
 COPY scripts/container-start.sh ./scripts/container-start.sh
 
 RUN chmod 0555 scripts/container-start.sh \
-    && mkdir -p /tmp/securebox-objects /data/objects \
-    && chown -R securebox:securebox /app /tmp/securebox-objects /data \
+    && mkdir -p /data/objects \
+    && chown -R securebox:securebox /app /data \
     && chmod -R a-w /app
 
 USER securebox

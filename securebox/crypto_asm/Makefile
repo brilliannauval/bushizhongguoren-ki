@@ -1,14 +1,4 @@
 CC = gcc
-# Fix 4: Additional symbol and compiler hardening flags:
-#   -fvisibility=hidden   → only explicitly marked symbols are exported; prevents
-#                           asm_rc4_init (and other internal labels) from leaking
-#                           into the dynamic symbol table even without .globl.
-#   -Wl,--exclude-libs,ALL → strip re-exported symbols from static libs linked in.
-#   -D_FORTIFY_SOURCE=2   → enable glibc buffer-overflow detection at runtime.
-#   -fstack-protector-strong → add stack canaries to functions with local arrays.
-#   -Wl,-z,relro,-z,now   → full RELRO: GOT is read-only after startup.
-#   -Wl,-z,noexecstack    → mark the stack non-executable.
-#   -Wl,--strip-debug     → omit debug info from the production shared object.
 CFLAGS = -shared -fPIC -O2 -maes -msse4.1 \
          -Wall -Wextra \
          -fvisibility=hidden \
@@ -18,10 +8,34 @@ CFLAGS = -shared -fPIC -O2 -maes -msse4.1 \
          -Wl,--exclude-libs,ALL \
          -Wl,--strip-debug
 
-all: libcrypto_asm.so
+EXPECTED_EXPORTS = asm_rc4_init_safe asm_rc4_crypt \
+                   asm_aes128_cbc_encrypt asm_aes128_cbc_decrypt \
+                   asm_des_cbc_crypt
+FORBIDDEN_EXPORTS = asm_rc4_init
+
+all: libcrypto_asm.so verify
 
 libcrypto_asm.so: rc4_x86_64.s aes_ni_x86_64.s des_x86_64.s
 	$(CC) $(CFLAGS) -o $@ $^
+
+verify: libcrypto_asm.so
+	@echo "=== Checking forbidden symbols are absent ==="
+	@for sym in $(FORBIDDEN_EXPORTS); do \
+	    if nm -D $< | grep -q " T $${sym}$$"; then \
+	        echo "FAIL: forbidden symbol '$${sym}' is exported from $<"; \
+	        exit 1; \
+	    fi; \
+	    echo "PASS: '$${sym}' is NOT in the dynamic symbol table"; \
+	done
+	@echo "=== Checking required symbols are present ==="
+	@for sym in $(EXPECTED_EXPORTS); do \
+	    if ! nm -D $< | grep -q " T $${sym}$$"; then \
+	        echo "FAIL: required symbol '$${sym}' is missing from $<"; \
+	        exit 1; \
+	    fi; \
+	    echo "PASS: '$${sym}' is in the dynamic symbol table"; \
+	done
+	@echo "=== All symbol checks passed ==="
 
 clean:
 	rm -f libcrypto_asm.so

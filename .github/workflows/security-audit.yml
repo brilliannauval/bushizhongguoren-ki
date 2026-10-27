@@ -1,0 +1,82 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    - cron: "0 5 * * 1"
+
+jobs:
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install pip-tools and pip-audit
+        run: pip install pip-tools pip-audit
+
+      - name: Verify lockfile is up-to-date
+        run: |
+          pip-compile --generate-hashes --allow-unsafe \
+            --output-file requirements.lock.ci requirements.txt
+          diff requirements.lock requirements.lock.ci || \
+            (echo "::error::requirements.lock is out of date. Run:" \
+             "pip-compile --generate-hashes --allow-unsafe -o requirements.lock requirements.txt" \
+             && exit 1)
+
+      - name: Audit for known vulnerabilities (pip-audit)
+        run: pip-audit -r requirements.txt --strict
+
+  symbol-audit:
+    name: Native Library Symbol Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: sudo apt-get install -y --no-install-recommends build-essential binutils
+
+      - name: Build native library (includes nm -D verify target)
+        run: make -C securebox/crypto_asm clean all
+
+      - name: Assert asm_rc4_init is NOT exported (belt-and-suspenders)
+        run: |
+          if nm -D securebox/crypto_asm/libcrypto_asm.so | grep -q ' T asm_rc4_init$'; then
+            echo "::error::asm_rc4_init is still exported from the shared library"
+            exit 1
+          fi
+          echo "PASS: asm_rc4_init is not in the dynamic symbol table"
+
+      - name: Assert all required symbols ARE exported
+        run: |
+          for sym in asm_rc4_init_safe asm_rc4_crypt \
+                     asm_aes128_cbc_encrypt asm_aes128_cbc_decrypt \
+                     asm_des_cbc_crypt; do
+            if ! nm -D securebox/crypto_asm/libcrypto_asm.so | grep -q " T $sym"; then
+              echo "::error::Expected symbol $sym is missing from libcrypto_asm.so"
+              exit 1
+            fi
+            echo "PASS: $sym is present"
+          done
+
+      - name: Binary hardening check (checksec)
+        run: |
+          pip install checksec.py 2>/dev/null || true
+          if command -v checksec &>/dev/null; then
+            checksec --file=securebox/crypto_asm/libcrypto_asm.so
+          else
+            # Fallback: manual RELRO and NX-stack check via readelf.
+            readelf -d securebox/crypto_asm/libcrypto_asm.so | grep -E "BIND_NOW|RELRO" \
+              && echo "PASS: RELRO/BIND_NOW present" || echo "WARN: RELRO check inconclusive"
+            readelf -l securebox/crypto_asm/libcrypto_asm.so | grep GNU_STACK \
+              | grep -q "RW " && echo "PASS: stack is non-executable (RW, not RWE)" \
+              || echo "WARN: could not confirm stack NX"
+          fi

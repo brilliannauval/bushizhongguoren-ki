@@ -9,7 +9,6 @@ from .api.middleware import BodyLimitMiddleware, SecurityHeadersMiddleware
 from .api.routes import router as api_router
 from .runtime import lifespan
 
-# Keep accepted uploads in memory instead of rolling plaintext to a temporary file.
 MultiPartParser.spool_max_size = 21 * 1024 * 1024
 
 app = FastAPI(
